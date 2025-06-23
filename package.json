@@ -1,0 +1,50 @@
+{
+	"name": "qr-menu-theme-builder",
+	"version": "1.0.0",
+	"description": "A library for registering Zod schemas as themes and converting them to JSON schemas",
+	"license": "ISC",
+	"author": "Furkan Çavdar",
+	"type": "module",
+	"main": "dist/src/index.js",
+	"types": "dist/src/index.d.ts",
+	"bin": {
+		"qr-menu-theme-builder": "./dist/bin/cli.js"
+	},
+	"scripts": {
+		"build": "tsc",
+		"run": "node dist/src/index.js",
+		"start": "npm run build && npm run run",
+		"prepublishOnly": "npm run build"
+	},
+	"dependencies": {
+		"@inquirer/prompts": "^7.5.3",
+		"@types/archiver": "^6.0.3",
+		"archiver": "^7.0.1",
+		"chalk": "^5.4.1",
+		"commander": "^14.0.0",
+		"unique-names-generator": "^4.7.1",
+		"zod": "^3.25.62",
+		"zod-to-json-schema": "^3.24.5"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/src/index.js",
+			"types": "./dist/src/index.d.ts"
+		}
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.1",
+		"typescript": "^5.8.3"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"keywords": [
+		"zod",
+		"schema",
+		"json-schema",
+		"theme",
+		"cli"
+	]
+}
