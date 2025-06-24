@@ -4,7 +4,7 @@ import path from "path";
 import { createWriteStream } from "fs";
 import archiver from "archiver";
 import { getSchemasDirectoryPath } from "../src/utils.js";
-import { BuildThemeOptions } from "./types/types.js";
+import { BuildThemeOptions } from "../types/types.js";
 
 // Get the current directory
 const currentDir = process.cwd();
@@ -56,7 +56,19 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 
 		// Check if schemas directory exists
 		const schemasDir = getSchemasDirectoryPath();
-		const schemaFiles: { name: string; path: string }[] = [];
+		const schemaFiles: {
+			name: string;
+			path: string;
+			loader_location: string;
+		}[] = [];
+
+		// Get the loader locations from the .loader_locations.json file
+		const loaderLocations: Record<string, string> = JSON.parse(
+			fs.readFileSync(
+				path.join(currentDir, ".loader_locations.json"),
+				"utf8"
+			)
+		);
 
 		if (fs.existsSync(schemasDir)) {
 			const files = fs.readdirSync(schemasDir);
@@ -64,9 +76,12 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 			for (const file of files) {
 				if (file.endsWith(".json")) {
 					const filePath = path.join(schemasDir, file);
+					const fileName = file.replace(/\.json$/, "");
+
 					schemaFiles.push({
-						name: file.replace(/\.json$/, ""),
+						name: fileName,
 						path: filePath,
+						loader_location: loaderLocations[fileName],
 					});
 
 					// Add schema file to the archive
@@ -94,6 +109,7 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 			schemasLocation: schemaFiles.map((file) => ({
 				name: file.name,
 				path: `schemas/${file.name}.json`,
+				loader_location: file.loader_location,
 			})),
 		};
 

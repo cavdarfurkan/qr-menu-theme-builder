@@ -45,6 +45,7 @@
 		"schema",
 		"json-schema",
 		"theme",
-		"cli"
+		"cli",
+		"qr-menu"
 	]
 }

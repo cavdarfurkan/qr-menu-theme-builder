@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import { buildTheme } from "./build-theme.js";
-import { BuildThemeOptions } from "./types/types.js";
+import { BuildThemeOptions } from "../types/types.js";
 import { input } from "@inquirer/prompts";
 import { uniqueNamesGenerator, adjectives, colors, animals } from "unique-names-generator";
 
