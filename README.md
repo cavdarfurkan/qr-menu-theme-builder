@@ -31,21 +31,44 @@ const menuItemSchema = z.object({
   price: z.number().positive(),
   categories: z.array(z.string()),
   available: z.boolean().default(true),
+  nutritionalInfo: z
+    .object({
+      calories: z.number().optional(),
+      protein: z.number().optional(),
+      carbs: z.number().optional(),
+      fat: z.number().optional(),
+    })
+    .optional(),
 });
 
 const categorySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
+  description: z.string().optional(),
   items: z.array(z.string().uuid()),
 });
 
 // Register schemas and generate JSON files in one step
-const result = registerSchemas({
-  menuItem: menuItemSchema,
-  category: categorySchema
-});
+const result = registerSchemas([
+  {
+    name: "menuItem",
+    schema: menuItemSchema,
+    loader_location: "examples/data/menu_items.json",
+  },
+  {
+    name: "category",
+    schema: categorySchema,
+    loader_location: "examples/data/categories.json",
+  },
+]);
 
 console.log(`Generated ${result.generated} schemas`);
+```
+
+To run this example:
+
+```bash
+npx tsx examples/example.ts
 ```
 
 The generated schemas will be saved to a `schemas` directory in your project root.
