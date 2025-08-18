@@ -7,6 +7,7 @@ import {
 	getSchemaFilePath,
 	getSchemasDirectoryPath,
 	clearSchemasDirectory,
+	ensureLoaderLocationsExist,
 } from "./utils.js";
 
 /**
@@ -25,12 +26,11 @@ export const registerAndGenerateSchemas = (schemas: SchemaType[]) => {
 
 		const outputPath = getSchemaFilePath(schema.name);
 		fs.writeFileSync(outputPath, jsonSchema, "utf8");
-		console.log(
-			`Generated JSON schema for '${schema.name}' at ${outputPath}`
-		);
+		console.log(`Generated JSON schema for '${schema.name}' at ${outputPath}`);
 		generatedCount++;
 	}
 
+	ensureLoaderLocationsExist(schemas);
 	saveLoaderLocations(schemas);
 
 	return {
@@ -41,10 +41,14 @@ export const registerAndGenerateSchemas = (schemas: SchemaType[]) => {
 const saveLoaderLocations = (schemas: SchemaType[]) => {
 	const outputPath = path.join(process.cwd(), ".loader_locations.json");
 
-	const loaderLocations = schemas.reduce((acc: Record<string, string>, schema) => {
-		acc[schema.name] = schema.loader_location;
-		return acc;
-	}, {});
+	const loaderLocations = schemas.reduce(
+		(acc: Record<string, string>, schema) => {
+			acc[schema.name] = schema.loader_location;
+			return acc;
+		},
+		{}
+	);
 
 	fs.writeFileSync(outputPath, JSON.stringify(loaderLocations));
+	console.log(`Saved loader locations manifest: ${outputPath}`);
 };

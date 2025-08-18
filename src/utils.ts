@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { SchemaType } from "../types/types.js";
 
 /**
  * Ensure a directory exists
@@ -7,6 +8,7 @@ import path from "path";
 export function ensureDirectoryExists(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`Created directory: ${dirPath}`);
   }
 }
 
@@ -42,3 +44,26 @@ export function clearSchemasDirectory(): void {
     }
   }
 } 
+
+/**
+ * Ensure loader locations' directories and files exist
+ */
+export function ensureLoaderLocationsExist(schemas: SchemaType[]): void {
+  for (const schema of schemas) {
+    const location = schema.loader_location;
+    if (!location) continue;
+
+    const absolutePath = path.isAbsolute(location)
+      ? location
+      : path.join(process.cwd(), location);
+    const directoryPath = path.dirname(absolutePath);
+    ensureDirectoryExists(directoryPath);
+
+    if (!fs.existsSync(absolutePath)) {
+      const ext = path.extname(absolutePath).toLowerCase();
+      const defaultContent = ext === ".json" ? "[]" : "";
+      fs.writeFileSync(absolutePath, defaultContent, "utf8");
+      console.log(`Created loader file for '${schema.name}': ${absolutePath}`);
+    }
+  }
+}
