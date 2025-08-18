@@ -47,5 +47,13 @@
 		"theme",
 		"cli",
 		"qr-menu"
-	]
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cavdarfurkan/qr-menu-theme-builder.git"
+	},
+	"bugs": {
+		"url": "https://github.com/cavdarfurkan/qr-menu-theme-builder/issues"
+	},
+	"homepage": "https://github.com/cavdarfurkan/qr-menu-theme-builder#readme"
 }

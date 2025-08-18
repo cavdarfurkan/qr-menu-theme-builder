@@ -1,4 +1,5 @@
 # QR Menu Theme Builder
+[![npm version](https://img.shields.io/npm/v/qr-menu-theme-builder.svg)](https://www.npmjs.com/package/qr-menu-theme-builder)
 
 A library for registering Zod schemas as themes and converting them to JSON schemas.
 
