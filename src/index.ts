@@ -12,3 +12,5 @@ export const registerSchemas = (
 ): { generated: number } => {
 	return registerAndGenerateSchemas(schemas);
 };
+
+export type { SchemaType } from "../types/types.js";
