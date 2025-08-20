@@ -1,4 +1,5 @@
 # QR Menu Theme Builder
+
 [![npm version](https://img.shields.io/npm/v/qr-menu-theme-builder.svg)](https://www.npmjs.com/package/qr-menu-theme-builder)
 
 A library for registering Zod schemas as themes and converting them to JSON schemas.
@@ -22,48 +23,47 @@ Register your Zod schemas and generate JSON schemas in one step:
 
 ```typescript
 import { z } from "zod";
-import { registerSchemas } from "qr-menu-theme-builder";
+import { registerSchemas } from "../src/index.js";
 
-// Define your Zod schemas
-const menuItemSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  price: z.number().positive(),
-  categories: z.array(z.string()),
-  available: z.boolean().default(true),
-  nutritionalInfo: z
-    .object({
-      calories: z.number().optional(),
-      protein: z.number().optional(),
-      carbs: z.number().optional(),
-      fat: z.number().optional(),
-    })
-    .optional(),
+// Define a schema for a category
+const categorySchema = z.object({
+ id: z.string().uuid(),
+ name: z.string().min(1),
+ description: z.string().optional(),
+ items: z.array(z.string().uuid()),
 });
 
-const categorySchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  items: z.array(z.string().uuid()),
+// Define a schema for a menu item
+const menuItemSchema = z.object({
+ id: z.string().uuid(),
+ name: z.string().min(1).max(100),
+ description: z.string().optional(),
+ price: z.number().positive(),
+ category: categorySchema,
+ available: z.boolean().default(true),
+ nutritionalInfo: z
+  .object({
+   calories: z.number().optional(),
+   protein: z.number().optional(),
+   carbs: z.number().optional(),
+   fat: z.number().optional(),
+  })
+  .optional(),
 });
 
 // Register schemas and generate JSON files in one step
-const result = registerSchemas([
-  {
-    name: "menuItem",
-    schema: menuItemSchema,
-    loader_location: "examples/data/menu_items.json",
-  },
-  {
-    name: "category",
-    schema: categorySchema,
-    loader_location: "examples/data/categories.json",
-  },
+registerSchemas([
+ {
+  name: "menuItem",
+  schema: menuItemSchema,
+  loader_location: "data/menu_items.json",
+ },
+ {
+  name: "category",
+  schema: categorySchema,
+  loader_location: "data/categories.json",
+ },
 ]);
-
-console.log(`Generated ${result.generated} schemas`);
 ```
 
 To run this example:
@@ -72,7 +72,7 @@ To run this example:
 npx tsx examples/example.ts
 ```
 
-The generated schemas will be saved to a `schemas` directory in your project root.
+The generated schemas will be saved to `.theme_schemas.json` file in your project root.
 
 ## Building Theme Packages
 
@@ -82,24 +82,25 @@ Once you've defined your schemas, you can use the CLI to build a distributable t
 npx qr-menu-theme-builder build-theme --name "My Restaurant Theme" --author "Your Name" --description "A theme for restaurant menus"
 ```
 
-This creates a zip file containing your project files, schemas, and a manifest.json file with metadata.
+This creates a zip file containing your project files, .theme_schemas.json, .loader_locations.json, and a manifest.json file with metadata.
 
 ### CLI Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `-o, --output <file>` | Output zip file name | `theme.zip` |
-| `-n, --name <name>` | Theme name for the manifest | Directory name |
-| `-v, --version <version>` | Theme version | `1.0.0` |
-| `-d, --description <description>` | Theme description | `""` |
-| `-a, --author <author>` | Theme author | `""` |
+| Option                            | Description                 | Default        |
+| --------------------------------- | --------------------------- | -------------- |
+| `-o, --output <file>`             | Output zip file name        | `theme.zip`    |
+| `-n, --name <name>`               | Theme name for the manifest | Directory name |
+| `-v, --version <version>`         | Theme version               | `1.0.0`        |
+| `-d, --description <description>` | Theme description           | `""`           |
+| `-a, --author <author>`           | Theme author                | `""`           |
 
 ### Theme Package Structure
 
 The generated theme package includes:
 
 - All project files (excluding development files like `node_modules`, `.git`, etc.)
-- A `schemas` directory containing all the JSON schemas
+- A `.theme_schemas.json` file containing the JSON schemas
+- A `.loader_locations.json` file indicating content locations
 - A `manifest.json` file with metadata about the theme and schemas
 
 ## How It Works
@@ -108,8 +109,8 @@ The `registerSchemas` function:
 
 1. Takes a record of named Zod schemas
 2. Converts each schema to a JSON schema
-3. Clears the schemas directory to remove any old schemas
-4. Writes the new schema files to the schemas directory
+3. Writes the new schema file to `.theme_schemas.json` file
+4. Creates empty content files at their respective locations
 
 This simplifies the process to a single function call, making it easy to integrate into your build or development process.
 

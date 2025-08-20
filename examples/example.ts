@@ -1,13 +1,21 @@
 import { z } from "zod";
 import { registerSchemas } from "../src/index.js";
 
+// Define a schema for a category
+const categorySchema = z.object({
+	id: z.string().uuid(),
+	name: z.string().min(1),
+	description: z.string().optional(),
+	items: z.array(z.string().uuid()),
+});
+
 // Define a schema for a menu item
 const menuItemSchema = z.object({
 	id: z.string().uuid(),
 	name: z.string().min(1).max(100),
 	description: z.string().optional(),
 	price: z.number().positive(),
-	categories: z.array(z.string()),
+	category: categorySchema,
 	available: z.boolean().default(true),
 	nutritionalInfo: z
 		.object({
@@ -19,29 +27,19 @@ const menuItemSchema = z.object({
 		.optional(),
 });
 
-// Define another schema for a category
-const categorySchema = z.object({
-	id: z.string().uuid(),
-	name: z.string().min(1),
-	description: z.string().optional(),
-	items: z.array(z.string().uuid()),
-});
-
 // Register schemas and generate JSON files in one step
-const result = registerSchemas([
+registerSchemas([
 	{
 		name: "menuItem",
 		schema: menuItemSchema,
-		loader_location: "examples/data/menu_items.json",
+		loader_location: "data/menu_items.json",
 	},
 	{
 		name: "category",
 		schema: categorySchema,
-		loader_location: "examples/data/categories.json",
+		loader_location: "data/categories.json",
 	},
 ]);
-
-console.log(`Generated ${result.generated} schemas`);
 
 // If you want to run this example with ts-node:
 // npx tsx example.ts

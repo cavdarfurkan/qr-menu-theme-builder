@@ -1,45 +1,44 @@
-import { zodToJsonSchema } from "zod-to-json-schema";
 import fs from "fs";
-import path from "path";
 import { SchemaType } from "../types/types.js";
 import {
-	ensureDirectoryExists,
-	getSchemaFilePath,
-	getSchemasDirectoryPath,
-	clearSchemasDirectory,
-	ensureLoaderLocationsExist,
+	getThemeSchemasPath,
+	ensureLoaderFilesExist,
+	getLoaderLocationsPath,
 } from "./utils.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 /**
  * Register schemas and immediately generate JSON schemas
  */
 export const registerAndGenerateSchemas = (schemas: SchemaType[]) => {
-	ensureDirectoryExists(getSchemasDirectoryPath());
-	clearSchemasDirectory();
+	const definitions = Object.fromEntries(
+		schemas.map((s) => [s.name, s.schema])
+	);
 
-	let generatedCount = 0;
+	const container = z.object(
+		Object.fromEntries(schemas.map((s) => [s.name, s.schema]))
+	);
 
-	for (const schema of schemas) {
-		const jsonSchema = JSON.stringify(
-			zodToJsonSchema(schema.schema, schema.name)
-		);
+	const jsonSchema = zodToJsonSchema(container, {
+		$refStrategy: "root",
+		definitions,
+		name: "ThemeSchemas",
+	});
 
-		const outputPath = getSchemaFilePath(schema.name);
-		fs.writeFileSync(outputPath, jsonSchema, "utf8");
-		console.log(`Generated JSON schema for '${schema.name}' at ${outputPath}`);
-		generatedCount++;
-	}
+	const outputPath = getThemeSchemasPath();
+	fs.writeFileSync(outputPath, JSON.stringify(jsonSchema), "utf8");
+	console.log(`Generated Theme schemas: ${outputPath}`);
 
-	ensureLoaderLocationsExist(schemas);
+	ensureLoaderFilesExist(schemas);
 	saveLoaderLocations(schemas);
-
-	return {
-		generated: generatedCount,
-	};
 };
 
+/**
+ * Create .loader_location.json file.
+ */
 const saveLoaderLocations = (schemas: SchemaType[]) => {
-	const outputPath = path.join(process.cwd(), ".loader_locations.json");
+	const outputPath = getLoaderLocationsPath();
 
 	const loaderLocations = schemas.reduce(
 		(acc: Record<string, string>, schema) => {

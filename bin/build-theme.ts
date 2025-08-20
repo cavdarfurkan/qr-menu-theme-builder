@@ -1,10 +1,9 @@
 import chalk from "chalk";
-import fs from "fs";
+import fs, { createWriteStream } from "fs";
 import path from "path";
-import { createWriteStream } from "fs";
 import archiver from "archiver";
-import { getSchemasDirectoryPath } from "../src/utils.js";
-import { BuildThemeOptions } from "../types/types.js";
+import { getLoaderLocationsPath, isFileExists } from "../src/utils.js";
+import { BuildThemeOptions, SchemaLocation } from "../types/types.js";
 
 // Get the current directory
 const currentDir = process.cwd();
@@ -26,14 +25,10 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 
 		// Listen for all archive data to be written
 		output.on("close", () => {
-			console.log(
-				chalk.green(`✓ Theme zip file created: ${options.output}`)
-			);
+			console.log(chalk.green(`✓ Theme zip file created: ${options.output}`));
 			console.log(
 				chalk.green(
-					`  Total size: ${(archive.pointer() / 1024 / 1024).toFixed(
-						2
-					)} MB`
+					`  Total size: ${(archive.pointer() / 1024 / 1024).toFixed(2)} MB`
 				)
 			);
 		});
@@ -54,49 +49,19 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 		// Pipe archive data to the output file
 		archive.pipe(output);
 
-		// Check if schemas directory exists
-		const schemasDir = getSchemasDirectoryPath();
-		const schemaFiles: {
-			name: string;
-			path: string;
-			loader_location: string;
-		}[] = [];
-
 		// Get the loader locations from the .loader_locations.json file
+		if (!isFileExists(getLoaderLocationsPath()))
+			throw Error("'.loader_locations.json' file does not exists");
 		const loaderLocations: Record<string, string> = JSON.parse(
-			fs.readFileSync(
-				path.join(currentDir, ".loader_locations.json"),
-				"utf8"
-			)
+			fs.readFileSync(getLoaderLocationsPath(), "utf8")
 		);
 
-		if (fs.existsSync(schemasDir)) {
-			const files = fs.readdirSync(schemasDir);
-
-			for (const file of files) {
-				if (file.endsWith(".json")) {
-					const filePath = path.join(schemasDir, file);
-					const fileName = file.replace(/\.json$/, "");
-
-					schemaFiles.push({
-						name: fileName,
-						path: filePath,
-						loader_location: loaderLocations[fileName],
-					});
-
-					// Add schema file to the archive
-					archive.file(filePath, { name: `schemas/${file}` });
-					console.log(chalk.blue(`  Added schema: schemas/${file}`));
-				}
-			}
-		} else {
-			console.warn(
-				chalk.yellow(
-					"Warning: Schemas directory not found. No schemas will be included."
-				)
-			);
-			// Create an empty schemas directory in the zip
-			archive.append("", { name: "schemas/.gitkeep" });
+		const schemaLocations: SchemaLocation[] = [];
+		for (const [key, val] of Object.entries(loaderLocations)) {
+			schemaLocations.push({
+				name: key,
+				location: val,
+			});
 		}
 
 		// Create a manifest.json file
@@ -106,11 +71,7 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 			description: options.description,
 			author: options.author,
 			createdAt: new Date().toISOString(),
-			schemasLocation: schemaFiles.map((file) => ({
-				name: file.name,
-				path: `schemas/${file.name}.json`,
-				loader_location: file.loader_location,
-			})),
+			loaderLocations: schemaLocations,
 		};
 
 		// Add manifest file to the archive
@@ -148,9 +109,7 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 		});
 
 		console.log(
-			chalk.blue(
-				"  Added project files (excluding development files/folders)"
-			)
+			chalk.blue("  Added project files (excluding development files/folders)")
 		);
 
 		// Finalize the archive

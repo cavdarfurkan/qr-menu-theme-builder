@@ -10,6 +10,11 @@ export interface BuildThemeOptions {
 
 export interface SchemaType {
 	name: string;
-	schema: z.ZodObject<any>;
+	schema: z.ZodTypeAny;
 	loader_location: string;
+}
+
+export interface SchemaLocation {
+	name: string;
+	location: string;
 }

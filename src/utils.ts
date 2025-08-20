@@ -3,67 +3,50 @@ import path from "path";
 import { SchemaType } from "../types/types.js";
 
 /**
+ * Check if a file exists.
+ */
+export function isFileExists(filePath: string): boolean {
+	return fs.existsSync(filePath);
+}
+
+/**
+ * Get the path for theme schemas file.
+ */
+export function getThemeSchemasPath(): string {
+	return path.join(process.cwd(), ".theme_schemas.json");
+}
+
+/**
+ * Get the path for loader locations file.
+ */
+export function getLoaderLocationsPath(): string {
+	return path.join(process.cwd(), ".loader_locations.json");
+}
+
+/**
  * Ensure a directory exists
  */
 export function ensureDirectoryExists(dirPath: string): void {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-    console.log(`Created directory: ${dirPath}`);
-  }
+	fs.mkdirSync(dirPath, { recursive: true });
 }
-
-/**
- * Get the directory path for storing JSON schemas
- */
-export function getSchemasDirectoryPath(): string {
-  return path.join(process.cwd(), "schemas");
-}
-
-/**
- * Get the path for a specific schema file
- */
-export function getSchemaFilePath(name: string): string {
-  return path.join(getSchemasDirectoryPath(), `${name}.json`);
-}
-
-/**
- * Remove all existing schema files
- */
-export function clearSchemasDirectory(): void {
-  const schemasDir = getSchemasDirectoryPath();
-  
-  if (!fs.existsSync(schemasDir)) {
-    return;
-  }
-  
-  const files = fs.readdirSync(schemasDir);
-  
-  for (const file of files) {
-    if (file.endsWith('.json')) {
-      fs.unlinkSync(path.join(schemasDir, file));
-    }
-  }
-} 
 
 /**
  * Ensure loader locations' directories and files exist
  */
-export function ensureLoaderLocationsExist(schemas: SchemaType[]): void {
-  for (const schema of schemas) {
-    const location = schema.loader_location;
-    if (!location) continue;
+export function ensureLoaderFilesExist(schemas: SchemaType[]): void {
+	for (const schema of schemas) {
+		const location = schema.loader_location;
+		if (!location) continue;
 
-    const absolutePath = path.isAbsolute(location)
-      ? location
-      : path.join(process.cwd(), location);
-    const directoryPath = path.dirname(absolutePath);
-    ensureDirectoryExists(directoryPath);
+		const absolutePath = path.isAbsolute(location)
+			? location
+			: path.join(process.cwd(), location);
+		const directoryPath = path.dirname(absolutePath);
+		ensureDirectoryExists(directoryPath);
 
-    if (!fs.existsSync(absolutePath)) {
-      const ext = path.extname(absolutePath).toLowerCase();
-      const defaultContent = ext === ".json" ? "[]" : "";
-      fs.writeFileSync(absolutePath, defaultContent, "utf8");
-      console.log(`Created loader file for '${schema.name}': ${absolutePath}`);
-    }
-  }
+		const ext = path.extname(absolutePath).toLowerCase();
+		const defaultContent = ext === ".json" ? "[]" : "";
+		fs.writeFileSync(absolutePath, defaultContent, "utf8");
+		console.log(`Created loader file for '${schema.name}': ${absolutePath}`);
+	}
 }

@@ -7,10 +7,8 @@ import { SchemaType } from "../types/types.js";
  * @param schemas A record of schema name to schema object
  * @returns Information about the generation process
  */
-export const registerSchemas = (
-	schemas: SchemaType[]
-): { generated: number } => {
-	return registerAndGenerateSchemas(schemas);
+export const registerSchemas = (schemas: SchemaType[]) => {
+	registerAndGenerateSchemas(schemas);
 };
 
 export type { SchemaType } from "../types/types.js";
