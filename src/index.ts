@@ -1,14 +1,15 @@
-import { registerAndGenerateSchemas } from "./register.js";
-import { SchemaType } from "../types/types.js";
+import { generateSchemas, saveLoaderLocations } from "./register.js";
+import type { SchemaType } from "../types/types.js";
+import type { z } from "zod";
 
 /**
- * Register schemas and generate JSON schema files
+ * Registers schemas and generates JSON schema files.
  *
- * @param schemas A record of schema name to schema object
- * @returns Information about the generation process
+ * @param schemas - An array of schema definitions to register and process.
  */
-export const registerSchemas = (schemas: SchemaType[]) => {
-	registerAndGenerateSchemas(schemas);
+export const registerSchemas = (schemas: SchemaType<z.ZodTypeAny>[]) => {
+	generateSchemas(schemas);
+	saveLoaderLocations(schemas);
 };
 
 export type { SchemaType } from "../types/types.js";

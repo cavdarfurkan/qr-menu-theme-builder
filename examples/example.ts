@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { registerSchemas } from "../src/index.js";
+import { registerSchemas, SchemaType } from "../src/index.js";
 
 // Define a schema for a category
 const categorySchema = z.object({
 	id: z.string().uuid(),
 	name: z.string().min(1),
 	description: z.string().optional(),
-	items: z.array(z.string().uuid()),
 });
 
 // Define a schema for a menu item
@@ -27,19 +26,48 @@ const menuItemSchema = z.object({
 		.optional(),
 });
 
-// Register schemas and generate JSON files in one step
-registerSchemas([
-	{
-		name: "menuItem",
-		schema: menuItemSchema,
-		loader_location: "data/menu_items.json",
+// Define a schema type for the category schema
+const categorySchemaType: SchemaType<typeof categorySchema> = {
+	name: "category",
+	schema: categorySchema,
+	uiSchema: {
+		"ui:order": ["id", "name", "description"],
+		name: {
+			"ui:widget": "text",
+		},
+		description: {
+			"ui:widget": "textarea",
+		},
 	},
-	{
-		name: "category",
-		schema: categorySchema,
-		loader_location: "data/categories.json",
-	},
-]);
+	loaderLocation: "data/categories.json",
+};
 
-// If you want to run this example with ts-node:
+// Define a schema type for the menu item schema
+const menuItemSchemaType: SchemaType<typeof menuItemSchema> = {
+	name: "menuItem",
+	schema: menuItemSchema,
+	uiSchema: {
+		id: {
+			"ui:widget": "hidden",
+		},
+		name: {
+			"ui:widget": "text",
+		},
+		price: {
+			"ui:widget": "number",
+		},
+		category: {
+			"ui:widget": "relationSelect",
+		},
+		available: {
+			"ui:widget": "checkbox",
+		},
+	},
+	loaderLocation: "data/menu_items.json",
+};
+
+// Register schemas and generate JSON files in one step
+registerSchemas([categorySchemaType, menuItemSchemaType]);
+
+// To run this example:
 // npx tsx example.ts

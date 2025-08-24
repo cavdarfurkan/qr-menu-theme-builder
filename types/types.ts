@@ -1,3 +1,4 @@
+import type { UiSchema } from "@rjsf/utils";
 import { z } from "zod";
 
 export interface BuildThemeOptions {
@@ -8,13 +9,25 @@ export interface BuildThemeOptions {
 	author: string;
 }
 
-export interface SchemaType {
+export interface SchemaType<T extends z.ZodTypeAny> {
 	name: string;
-	schema: z.ZodTypeAny;
-	loader_location: string;
+	schema: T;
+	uiSchema?: { [K in keyof z.infer<T>]?: UiSchema } | UiSchema;
+	loaderLocation: string;
 }
 
-export interface SchemaLocation {
+export interface ContentType {
 	name: string;
-	location: string;
+	schemaPath: string;
+	uiSchemaPath: string;
+	loaderLocationPath: string;
+}
+
+export interface ManifestType {
+	name: string;
+	version: string;
+	description: string;
+	author: string;
+	createdAt: string;
+	contentTypes: ContentType[];
 }

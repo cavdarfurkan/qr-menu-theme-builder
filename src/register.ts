@@ -1,48 +1,65 @@
 import fs from "fs";
 import { SchemaType } from "../types/types.js";
 import {
-	getThemeSchemasPath,
 	ensureLoaderFilesExist,
 	getLoaderLocationsPath,
+	ensureDirectoryExists,
+	getThemeSchemasDirectoryPath,
+	clearThemeSchemasDirectory,
+	getThemeSchemaFilePath,
+	getThemeUiSchemaFilePath,
+	getThemeUiSchemasDirectoryPath,
+	clearThemeUiSchemasDirectory,
+	removeLoaderFiles,
 } from "./utils.js";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 /**
- * Register schemas and immediately generate JSON schemas
+ * Generate JSON schemas for the given schemas and save them to the theme schemas file.
  */
-export const registerAndGenerateSchemas = (schemas: SchemaType[]) => {
-	const definitions = Object.fromEntries(
-		schemas.map((s) => [s.name, s.schema])
-	);
+export const generateSchemas = (schemas: SchemaType<z.ZodTypeAny>[]) => {
+	ensureDirectoryExists(getThemeSchemasDirectoryPath());
+	clearThemeSchemasDirectory();
 
-	const container = z.object(
-		Object.fromEntries(schemas.map((s) => [s.name, s.schema]))
-	);
+	ensureDirectoryExists(getThemeUiSchemasDirectoryPath());
+	clearThemeUiSchemasDirectory();
 
-	const jsonSchema = zodToJsonSchema(container, {
-		$refStrategy: "root",
-		definitions,
-		name: "ThemeSchemas",
+	schemas.forEach((schema) => {
+		const jsonSchema = zodToJsonSchema(schema.schema, {
+			name: schema.name,
+			$refStrategy: "root",
+		});
+
+		const uiSchema = JSON.stringify(schema.uiSchema);
+
+		const outputPath = getThemeSchemaFilePath(schema.name);
+		fs.writeFileSync(outputPath, JSON.stringify(jsonSchema), "utf8");
+		console.log(`Generated theme schema: ${outputPath}`);
+
+		const uiOutputPath = getThemeUiSchemaFilePath(schema.name);
+		fs.writeFileSync(uiOutputPath, uiSchema, "utf8");
+		console.log(`Generated theme ui schema: ${uiOutputPath}`);
 	});
-
-	const outputPath = getThemeSchemasPath();
-	fs.writeFileSync(outputPath, JSON.stringify(jsonSchema), "utf8");
-	console.log(`Generated Theme schemas: ${outputPath}`);
-
-	ensureLoaderFilesExist(schemas);
-	saveLoaderLocations(schemas);
 };
 
 /**
  * Create .loader_location.json file.
  */
-const saveLoaderLocations = (schemas: SchemaType[]) => {
+export const saveLoaderLocations = (schemas: SchemaType<z.ZodTypeAny>[]) => {
+	try {
+		removeLoaderFiles();
+		ensureLoaderFilesExist(schemas);
+	} catch (error) {
+		console.error(`Failed to prepare loader files: ${error}`);
+		throw error;
+	}
+
 	const outputPath = getLoaderLocationsPath();
 
 	const loaderLocations = schemas.reduce(
 		(acc: Record<string, string>, schema) => {
-			acc[schema.name] = schema.loader_location;
+			acc[schema.name] = schema.loaderLocation;
 			return acc;
 		},
 		{}

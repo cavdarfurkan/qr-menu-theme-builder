@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/qr-menu-theme-builder.svg)](https://www.npmjs.com/package/qr-menu-theme-builder)
 
-A library for registering Zod schemas as themes and converting them to JSON schemas.
+A library for registering Zod schemas as themes and converting them into per-schema JSON Schema files.
 
 ## Installation
 
@@ -19,18 +19,14 @@ npm install qr-menu-theme-builder
 
 ## Usage
 
-Register your Zod schemas and generate JSON schemas in one step:
+Register your Zod schemas and generate a JSON schema in one step:
 
 ```typescript
-import { z } from "zod";
-import { registerSchemas } from "../src/index.js";
-
 // Define a schema for a category
 const categorySchema = z.object({
  id: z.string().uuid(),
  name: z.string().min(1),
  description: z.string().optional(),
- items: z.array(z.string().uuid()),
 });
 
 // Define a schema for a menu item
@@ -51,19 +47,48 @@ const menuItemSchema = z.object({
   .optional(),
 });
 
+// Define a schema type for the category schema
+const categorySchemaType: SchemaType<typeof categorySchema> = {
+ name: "category",
+ schema: categorySchema,
+ uiSchema: {
+  "ui:order": ["id", "name", "description"],
+  name: {
+   "ui:widget": "text",
+  },
+  description: {
+   "ui:widget": "textarea",
+  },
+ },
+ loaderLocation: "data/categories.json",
+};
+
+// Define a schema type for the menu item schema
+const menuItemSchemaType: SchemaType<typeof menuItemSchema> = {
+ name: "menuItem",
+ schema: menuItemSchema,
+ uiSchema: {
+  id: {
+   "ui:widget": "hidden",
+  },
+  name: {
+   "ui:widget": "text",
+  },
+  price: {
+   "ui:widget": "number",
+  },
+  category: {
+   "ui:widget": "relationSelect",
+  },
+  available: {
+   "ui:widget": "checkbox",
+  },
+ },
+ loaderLocation: "data/menu_items.json",
+};
+
 // Register schemas and generate JSON files in one step
-registerSchemas([
- {
-  name: "menuItem",
-  schema: menuItemSchema,
-  loader_location: "data/menu_items.json",
- },
- {
-  name: "category",
-  schema: categorySchema,
-  loader_location: "data/categories.json",
- },
-]);
+registerSchemas([categorySchemaType, menuItemSchemaType]);
 ```
 
 To run this example:
@@ -72,7 +97,7 @@ To run this example:
 npx tsx examples/example.ts
 ```
 
-The generated schemas will be saved to `.theme_schemas.json` file in your project root.
+The generated schemas and ui schemas will be saved to `schemas/` and `ui_schemas/` directories respectively.
 
 ## Building Theme Packages
 
@@ -89,7 +114,7 @@ This creates a zip file containing your project files, .theme_schemas.json, .loa
 | Option                            | Description                 | Default        |
 | --------------------------------- | --------------------------- | -------------- |
 | `-o, --output <file>`             | Output zip file name        | `theme.zip`    |
-| `-n, --name <name>`               | Theme name for the manifest | Directory name |
+| `-n, --name <name>`               | Theme name                  | randomly generated |
 | `-v, --version <version>`         | Theme version               | `1.0.0`        |
 | `-d, --description <description>` | Theme description           | `""`           |
 | `-a, --author <author>`           | Theme author                | `""`           |
@@ -99,9 +124,10 @@ This creates a zip file containing your project files, .theme_schemas.json, .loa
 The generated theme package includes:
 
 - All project files (excluding development files like `node_modules`, `.git`, etc.)
-- A `.theme_schemas.json` file containing the JSON schemas
+- A `schemas/` directory containing per-schema JSON Schema files
+- A `ui_schemas/` directory containing per-schema UI schema files
 - A `.loader_locations.json` file indicating content locations
-- A `manifest.json` file with metadata about the theme and schemas
+- A `manifest.json` file with theme metadata and a `contentTypes[]` array referencing each schema, UI schema, and loader location
 
 ## How It Works
 

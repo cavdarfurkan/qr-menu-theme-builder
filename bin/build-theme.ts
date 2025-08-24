@@ -2,8 +2,17 @@ import chalk from "chalk";
 import fs, { createWriteStream } from "fs";
 import path from "path";
 import archiver from "archiver";
-import { getLoaderLocationsPath, isFileExists } from "../src/utils.js";
-import { BuildThemeOptions, SchemaLocation } from "../types/types.js";
+import {
+	getLoaderLocationsPath,
+	getThemeSchemasDirectoryPath,
+	getThemeUiSchemasDirectoryPath,
+	isFileExists,
+} from "../src/utils.js";
+import {
+	BuildThemeOptions,
+	ContentType,
+	ManifestType,
+} from "../types/types.js";
 
 // Get the current directory
 const currentDir = process.cwd();
@@ -12,6 +21,9 @@ const currentDir = process.cwd();
 interface ArchiverError extends Error {
 	code?: string;
 }
+
+const SCHEMA_EXTENSION = ".json";
+const UI_SCHEMA_EXTENSION = ".ui.json";
 
 export const buildTheme = async (options: BuildThemeOptions) => {
 	try {
@@ -49,29 +61,82 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 		// Pipe archive data to the output file
 		archive.pipe(output);
 
+		const contentTypes: ContentType[] = [];
+
+		// Check if the required files and directories exist
+		if (!isFileExists(getLoaderLocationsPath())) {
+			throw Error("'.loader_locations.json' file does not exist");
+		}
+		if (!isFileExists(getThemeSchemasDirectoryPath())) {
+			throw Error("'schemas' directory does not exist");
+		}
+		if (!isFileExists(getThemeUiSchemasDirectoryPath())) {
+			throw Error("'ui_schemas' directory does not exist");
+		}
+
 		// Get the loader locations from the .loader_locations.json file
-		if (!isFileExists(getLoaderLocationsPath()))
-			throw Error("'.loader_locations.json' file does not exists");
 		const loaderLocations: Record<string, string> = JSON.parse(
 			fs.readFileSync(getLoaderLocationsPath(), "utf8")
 		);
 
-		const schemaLocations: SchemaLocation[] = [];
-		for (const [key, val] of Object.entries(loaderLocations)) {
-			schemaLocations.push({
-				name: key,
-				location: val,
+		// Get the schema files from the 'schemas' directory
+		const schemaFiles = fs.readdirSync(getThemeSchemasDirectoryPath());
+		for (const file of schemaFiles) {
+			if (!file.endsWith(SCHEMA_EXTENSION)) {
+				continue;
+			}
+
+			const schemasDir = path.basename(getThemeSchemasDirectoryPath());
+			const uiSchemasDir = path.basename(getThemeUiSchemasDirectoryPath());
+
+			const schemaName = file.replace(SCHEMA_EXTENSION, "");
+			const schemaPath = `${schemasDir}/${file}`;
+
+			// Check if there's a corresponding UI schema
+			const uiSchemaPath = `${uiSchemasDir}/${schemaName}${UI_SCHEMA_EXTENSION}`;
+			const absoluteUiSchemaPath = path.join(
+				getThemeUiSchemasDirectoryPath(),
+				`${schemaName}${UI_SCHEMA_EXTENSION}`
+			);
+			if (!fs.existsSync(absoluteUiSchemaPath)) {
+				console.warn(
+					chalk.yellow(
+						`Warning: No UI schema found for content type '${schemaName}'`
+					)
+				);
+				continue;
+			}
+
+			// Get the loader location for this content type
+			const loaderLocation = loaderLocations[schemaName];
+			if (!loaderLocation) {
+				console.warn(
+					chalk.yellow(
+						`Warning: No loader location found for content type '${schemaName}'`
+					)
+				);
+				continue;
+			}
+
+			// Add to contentTypes array
+			contentTypes.push({
+				name: schemaName,
+				schemaPath: schemaPath,
+				uiSchemaPath: uiSchemaPath,
+				loaderLocationPath: loaderLocation,
 			});
+
+			console.log(chalk.blue(`  Added content type: ${schemaName}`));
 		}
 
 		// Create a manifest.json file
-		const manifest = {
+		const manifest: ManifestType = {
 			name: options.name || path.basename(currentDir),
 			version: options.version,
 			description: options.description,
 			author: options.author,
 			createdAt: new Date().toISOString(),
-			loaderLocations: schemaLocations,
+			contentTypes: contentTypes,
 		};
 
 		// Add manifest file to the archive
@@ -98,7 +163,6 @@ export const buildTheme = async (options: BuildThemeOptions) => {
 			"coverage/**",
 			".nyc_output/**",
 			".astro/**",
-			"schemas/**",
 		];
 
 		// Add all files in the current directory, excluding the patterns above
