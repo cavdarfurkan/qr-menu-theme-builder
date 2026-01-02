@@ -26,10 +26,15 @@ export const generateSchemas = (schemas: SchemaType<z.ZodTypeAny>[]) => {
 	clearThemeUiSchemasDirectory();
 
 	schemas.forEach((schema) => {
-		const jsonSchema = zodToJsonSchema(schema.schema, {
+		let jsonSchema = zodToJsonSchema(schema.schema, {
 			name: schema.name,
 			$refStrategy: "root",
 		});
+
+		// Make relation fields permissive based on uiSchema
+		if (schema.uiSchema) {
+			jsonSchema = makeRelationFieldsPermissive(jsonSchema, schema.uiSchema);
+		}
 
 		const uiSchema = JSON.stringify(schema.uiSchema);
 
@@ -68,3 +73,36 @@ export const saveLoaderLocations = (schemas: SchemaType<z.ZodTypeAny>[]) => {
 	fs.writeFileSync(outputPath, JSON.stringify(loaderLocations));
 	console.log(`Saved loader locations manifest: ${outputPath}`);
 };
+
+function makeRelationFieldsPermissive(jsonSchema: any, uiSchema: any): any {
+	const schemaName = jsonSchema.$ref?.replace("#/definitions/", "");
+	if (!schemaName || !jsonSchema.definitions?.[schemaName]) {
+		return jsonSchema;
+	}
+
+	const definition = jsonSchema.definitions[schemaName];
+	if (!definition.properties) {
+		return jsonSchema;
+	}
+
+	// Find relation fields from uiSchema
+	for (const [fieldName, fieldUiSchema] of Object.entries(uiSchema)) {
+		if ((fieldUiSchema as any)?.["ui:field"] === "relationSelect") {
+			const isMultiple = (fieldUiSchema as any)?.["ui:options"]?.isMultiple;
+
+			// Replace with permissive schema
+			definition.properties[fieldName] = isMultiple
+				? { type: "array" } // Accept any array
+				: { type: "object" }; // Accept any object
+
+			// Remove from required if present (relations are handled separately)
+			if (definition.required) {
+				definition.required = definition.required.filter(
+					(req: string) => req !== fieldName
+				);
+			}
+		}
+	}
+
+	return jsonSchema;
+}

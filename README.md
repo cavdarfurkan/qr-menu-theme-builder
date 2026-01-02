@@ -107,7 +107,7 @@ Once you've defined your schemas, you can use the CLI to build a distributable t
 npx qr-menu-theme-builder build-theme --name "My Restaurant Theme" --author "Your Name" --description "A theme for restaurant menus"
 ```
 
-This creates a zip file containing your project files, .theme_schemas.json, .loader_locations.json, and a manifest.json file with metadata.
+This creates a zip file containing your project files, schemas, ui_schemas, .loader_locations.json, and a manifest.json file with metadata.
 
 ### CLI Options
 
