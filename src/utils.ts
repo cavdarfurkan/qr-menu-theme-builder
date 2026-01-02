@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { SchemaType } from "../types/types.js";
 import { z } from "zod";
+import type { UiSchema } from "@rjsf/utils";
 
 const THEME_SCHEMAS_DIR = "schemas";
 const THEME_UI_SCHEMAS_DIR = "ui_schemas";
@@ -97,15 +98,120 @@ export function getLoaderLocationsPath(): string {
 }
 
 /**
+ * Check if a Zod type is an array schema.
+ */
+function isArraySchema(schema: z.ZodTypeAny): boolean {
+	// Check both instanceof and the _def.typeName
+	return (
+		schema instanceof z.ZodArray ||
+		(schema as any)._def?.typeName === "ZodArray"
+	);
+}
+
+/**
+ * Validate that schema fields match isMultiple settings from uiSchema.
+ * Throws an error if a field with isMultiple: true is not defined as an array,
+ * or if a field with isMultiple: false/undefined is defined as an array.
+ */
+function validateSchemaMatchesUiSchema(
+	schema: z.ZodTypeAny,
+	uiSchema: { [key: string]: UiSchema } | UiSchema | undefined,
+	schemaName: string
+): void {
+	if (!uiSchema || typeof uiSchema !== "object" || Array.isArray(uiSchema)) {
+		return;
+	}
+
+	// Check if schema has a shape property (it's an object schema)
+	const schemaShape = (schema as any).shape;
+	if (!schemaShape || typeof schemaShape !== "object") {
+		return;
+	}
+
+	const fieldUiSchema = uiSchema as { [key: string]: UiSchema };
+
+	// Check each field in the uiSchema
+	for (const [fieldName, uiFieldConfig] of Object.entries(fieldUiSchema)) {
+		// Skip ui:* keys
+		if (fieldName.startsWith("ui:")) {
+			continue;
+		}
+
+		// Check if this field exists in the schema
+		if (!(fieldName in schemaShape)) {
+			continue;
+		}
+
+		const fieldSchema = schemaShape[fieldName] as z.ZodTypeAny;
+		if (!fieldSchema) {
+			continue;
+		}
+
+		// Check if this field has relationSelect with isMultiple
+		if (
+			uiFieldConfig &&
+			typeof uiFieldConfig === "object" &&
+			"ui:field" in uiFieldConfig &&
+			uiFieldConfig["ui:field"] === "relationSelect"
+		) {
+			const uiOptions = (uiFieldConfig as any)["ui:options"];
+			const isMultiple = uiOptions?.isMultiple === true;
+
+			// Unwrap optional to check the inner type
+			const unwrappedSchema = unwrapOptional(fieldSchema);
+			const isArray = isArraySchema(unwrappedSchema);
+
+			console.debug(
+				`[validateSchemaMatchesUiSchema] Field '${fieldName}': isMultiple=${isMultiple}, isArray=${isArray}, fieldSchema type=${fieldSchema.constructor.name}, unwrapped type=${unwrappedSchema.constructor.name}, unwrapped _def.typeName=${(unwrappedSchema as any)._def?.typeName}`
+			);
+
+			if (isMultiple && !isArray) {
+				throw new Error(
+					`Schema validation error for '${schemaName}': Field '${fieldName}' has isMultiple: true in uiSchema but is not defined as an array in the Zod schema. Please define it as z.array(...) instead.`
+				);
+			}
+
+			if (!isMultiple && isArray) {
+				throw new Error(
+					`Schema validation error for '${schemaName}': Field '${fieldName}' has isMultiple: false (or not set) in uiSchema but is defined as an array in the Zod schema. Please define it as a single object instead.`
+				);
+			}
+		}
+	}
+}
+
+/**
+ * Unwrap optional schema to get the inner schema.
+ * Recursively unwraps until we get to a non-optional schema.
+ */
+function unwrapOptional(schema: z.ZodTypeAny): z.ZodTypeAny {
+	// Check both instanceof and the _def.typeName
+	const isOptional =
+		schema instanceof z.ZodOptional ||
+		(schema as any)._def?.typeName === "ZodOptional";
+
+	if (isOptional) {
+		const innerType = (schema as any)._def?.innerType;
+		if (innerType) {
+			// Recursively unwrap in case of nested optionals
+			return unwrapOptional(innerType);
+		}
+	}
+	return schema;
+}
+
+/**
  * Validate loader file content against a schema.
  * @param content - The file content to validate
  * @param schema - The Zod schema to validate against
+ * @param uiSchema - The UI schema to determine isMultiple fields
  * @param isJson - Whether the content is JSON format
  * @returns true if content is valid, false otherwise
  */
 function isValidLoaderContent(
 	content: string,
 	schema: z.ZodTypeAny,
+	uiSchema: { [key: string]: UiSchema } | UiSchema | undefined,
 	isJson: boolean
 ): boolean {
 	// Empty content is considered invalid
@@ -128,6 +234,10 @@ function isValidLoaderContent(
 					const item = parsedContent[i];
 					const itemResult = schema.safeParse(item);
 					if (!itemResult.success) {
+						console.debug(
+							`[isValidLoaderContent] Item at index ${i} failed validation:`,
+							itemResult.error.issues
+						);
 						return false;
 					}
 				}
@@ -141,6 +251,12 @@ function isValidLoaderContent(
 
 		// Validate against schema (for non-array content or non-JSON files)
 		const result = schema.safeParse(parsedContent);
+		if (!result.success) {
+			console.debug(
+				"[isValidLoaderContent] Content failed validation:",
+				result.error.issues
+			);
+		}
 		return result.success;
 	} catch (error) {
 		// Any parse error or validation error means invalid content
@@ -154,6 +270,16 @@ function isValidLoaderContent(
 export function ensureLoaderFilesExist(
 	schemas: SchemaType<z.ZodTypeAny>[]
 ): void {
+	// First, validate that all schemas match their uiSchema isMultiple settings
+	// This will throw and exit if any schema doesn't match
+	for (const schema of schemas) {
+		validateSchemaMatchesUiSchema(
+			schema.schema,
+			schema.uiSchema,
+			schema.name
+		);
+	}
+
 	for (const schema of schemas) {
 		const location = schema.loaderLocation;
 		if (!location) continue;
@@ -170,13 +296,19 @@ export function ensureLoaderFilesExist(
 
 		// Check if file already exists
 		if (isFileExists(absolutePath)) {
-			console.log("file exists");
 			try {
 				// Read existing content
 				const existingContent = fs.readFileSync(absolutePath, "utf8");
 
 				// Validate existing content against schema
-				if (isValidLoaderContent(existingContent, schema.schema, isJson)) {
+				if (
+					isValidLoaderContent(
+						existingContent,
+						schema.schema,
+						schema.uiSchema,
+						isJson
+					)
+				) {
 					console.log(
 						`Preserved valid loader file for '${schema.name}': ${absolutePath}`
 					);
@@ -194,8 +326,6 @@ export function ensureLoaderFilesExist(
 					error
 				);
 			}
-		} else {
-			console.log("file does not exists");
 		}
 
 		// File doesn't exist or has invalid content, create/overwrite with default
@@ -246,7 +376,10 @@ export function removeLoaderFiles(schemas: SchemaType<z.ZodTypeAny>[]): void {
 				}
 			}
 		} catch (err) {
-			console.error("Failed to remove unused loader files from old locations:", err);
+			console.error(
+				"Failed to remove unused loader files from old locations:",
+				err
+			);
 		}
 
 		// Remove the .loader_locations.json file itself (it will be recreated)
