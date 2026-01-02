@@ -53,7 +53,7 @@ export const generateSchemas = (schemas: SchemaType<z.ZodTypeAny>[]) => {
  */
 export const saveLoaderLocations = (schemas: SchemaType<z.ZodTypeAny>[]) => {
 	try {
-		removeLoaderFiles();
+		removeLoaderFiles(schemas);
 		ensureLoaderFilesExist(schemas);
 	} catch (error) {
 		console.error(`Failed to prepare loader files: ${error}`);
