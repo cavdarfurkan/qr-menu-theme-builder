@@ -1,0 +1,66 @@
+name: Publish to npm
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+      
+      - name: Install npm 11.5.1+ (required for Trusted Publishing)
+        run: npm install -g npm@latest
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Check if version exists on npm
+        id: check-version
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$PACKAGE_NAME@$VERSION" version > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already exists on npm, skipping publish"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION does not exist on npm, will publish"
+          fi
+        continue-on-error: true
+      
+      - name: Determine publish tag from version
+        id: publish-tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" =~ -([^.]+) ]]; then
+            PRERELEASE_TAG="${BASH_REMATCH[1]}"
+            echo "tag=$PRERELEASE_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Publish to npm
+        if: steps.check-version.outputs.exists != 'true'
+        run: |
+          TAG="${{ steps.publish-tag.outputs.tag }}"
+          if [ "$TAG" = "latest" ]; then
+            npm publish
+          else
+            npm publish --tag "$TAG"
+          fi
+
